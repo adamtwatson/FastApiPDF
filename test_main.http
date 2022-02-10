@@ -1,0 +1,26 @@
+# Test your FastAPI endpoints
+
+###
+# No Language Selected
+GET http://127.0.0.1:8050/generate-pdf
+Accept: application/json
+
+###
+
+###
+
+# English Language Selected
+GET http://127.0.0.1:8050/generate-pdf
+Accept: application/json
+Accept-Language: en
+
+###
+
+###
+
+# German Language Selected
+GET http://127.0.0.1:8050/generate-pdf
+Accept: application/json
+Accept-Language: de
+
+###

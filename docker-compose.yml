@@ -1,0 +1,10 @@
+version: '2'
+services:
+  api:
+    build: .
+    command: sh app_entrypoint.sh
+    restart: unless-stopped
+    volumes:
+      - .:/code
+    ports:
+      - "8050:80"

@@ -1,0 +1,37 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <style>
+        @page {
+            size: letter;
+            margin: 1.5cm 1cm 1cm 1.5cm;
+        }
+        .center {
+            margin: auto;
+            text-align: center;
+        }
+
+        .page_font {
+            line-height: 30px;
+            font-family: 'Times Roman', Times, serif;
+            font-size: 24px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="center page_font" style="color: #112358">
+
+        <div class="page">
+        <h1>{{ title }}</h1>
+        <ol>
+            <li>{{ data_point_1 }}</li>
+            <li>{{ data_point_2 }}</li>
+            <li>{{ data_point_3 }}</li>
+        </ol>
+        </div>
+    </div>
+</body>
+</html>
