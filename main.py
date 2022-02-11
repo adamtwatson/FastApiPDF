@@ -1,32 +1,38 @@
+import codecs
 import logging
 import os
 
 import json
 import glob
 from functools import wraps
+from io import BytesIO
 
 from fastapi import FastAPI, Request
 from starlette.types import Scope
-from starlette.responses import Response
+from starlette.responses import StreamingResponse
 from weasyprint import HTML
 
 from jinja2 import Environment, FileSystemLoader
+from config import settings
 
 
-logging.basicConfig(level='DEBUG', format='%(asctime)s %(levelname)s %(name)s:%(pathname)s:%(lineno)s %(message)s')
-
+# init our logger
+# logging.basicConfig(level='DEBUG', format='[%(asctime)s] %(levelname)s [%(name)s:%(pathname)s:%(lineno)s] %(message)s')
+# config.dictConfig(settings.LOGGING)
+# Grab the logger based on the name in settings
+logger = logging.getLogger(settings.LOG_NAME)
 
 app = FastAPI()
 
+# A dictionary containing language keys, and translations dictionary
 languages = {}
 # Find all translation files
 language_list = glob.glob("languages/*.json")
-# Loop the language files and file the dictionary with key and values
+# Loop the language files and fill the dictionary with key and values
 for lang in language_list:
     filename = os.path.basename(lang)
     # Use the file name as the key,
     lang_code, ext = os.path.splitext(filename)
-
     # Open the file
     with open(lang, 'r', encoding='utf8') as file:
         # Open the data as json and fill the translation dictionary
@@ -48,7 +54,7 @@ def environment():
     return j2_env
 
 
-class PDFResponse(Response):
+class StreamingPDFResponse(StreamingResponse):
     """
     Response class to automatically add the media type for PDF file to the http response
     """
@@ -66,13 +72,13 @@ def add_i18n_translations(func):
         request = kwargs['request']
         # Make sure there is request context
         assert request
-        logging.debug(f"request.headers: {request.headers}")
+        logger.debug(f"headers: {dict(request.headers)}")
 
         # Get the locale from the headers
         locale = request.headers.get('accept-language')
         # Make sure the requested local actually exists in language keys, otherwise default to english
         if locale not in languages.keys():
-            logging.debug(f'Requested locale: {locale}, not available, defaulting to en')
+            logger.debug(f'Requested locale: {locale}, not available, defaulting to en')
             locale = 'en'
         # Add translation data into the request
         kwargs['request'].i18n = languages[locale]
@@ -91,14 +97,20 @@ class I18nRequest(Request):
         self.i18n = None
 
 
+def iterfile(target_file):
+    # Adds byte mark order for UTF-8, https://en.wikipedia.org/wiki/Byte_order_mark
+    yield codecs.BOM_UTF8
+    # Syntax for Delegating to a Subgenerator, https://www.python.org/dev/peps/pep-0380/ for more info
+    yield from target_file
+
+
 @app.get('/generate-pdf')
 @add_i18n_translations
 async def generate_pdf(request: I18nRequest):
     """
     A FastAPI endpoint that will create a translatable PDF file
-    :param request:
-    :return:
     """
+    logger.debug('logging loggington with a log on top!')
     # Grab the template
     template = environment().get_template('pdf_template.html')
     # Initialize the context
@@ -121,9 +133,13 @@ async def generate_pdf(request: I18nRequest):
 
     context.update(data_dict)
 
-    logging.debug(f'context: {context}')
+    logger.debug(f'context: {context}')
     # Pass the context data to the template, this includes translation context keys
     html = template.render(context)
-    # Create the PDF, this may need to change to a streaming response
-    pdf_content = HTML(string=html).write_pdf()
-    return PDFResponse(content=pdf_content)
+    # Create a bytes io object to store the pdf we are creating
+    target_file = BytesIO()
+    # Create the PDF, using the ByteIO object as the target file
+    HTML(string=html).write_pdf(target=target_file)
+    # Set the BytesIO file buffer's current position to 0, this lets the file be iterated from the start
+    target_file.seek(0)
+    return StreamingPDFResponse(iterfile(target_file))
